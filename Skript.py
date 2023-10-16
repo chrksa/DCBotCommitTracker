@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 import os
 import github
 import requests
+import asyncio
 
 
 
@@ -19,13 +20,20 @@ def checkUserExist(username):
         return True
     else:
         return False
+
+def checkRepoExist(username, repo):
+    r = requests.get('https://api.github.com/repos/' + username + '/' + repo)
+    if r.status_code == 200:
+        return True
+    else:
+        return False
     
 class MyDiscordBot(discord.Client):
     intents = discord.Intents.all()
 
 
-    user= []
-    repo= []
+    user= [] # 3er Tupel: (GitHub Username, Channel) - 4er tupel (GitHub Username, Channel, Anzahl Commits) ?
+    repo= str
 
     async def on_ready(self):
         print('Logged on as {0}!'.format(self.user))
@@ -33,7 +41,12 @@ class MyDiscordBot(discord.Client):
         for guild in self.guilds:
             channels = guild.text_channels
         repo = channels
-                
+
+    async def repeatCheckRepo(self):
+        while True:
+            await self.write_in_channel(self.user, self.repo)
+            await asyncio.sleep(10)
+
     
    # async def get_all_channels(self) -> Generator[guild.Guild, None, None]:
    #     return super().get_all_channels()
@@ -45,15 +58,33 @@ class MyDiscordBot(discord.Client):
         else:
             await ctx.send('Channel not found')
 
-    
-    
+    async def write_in_channel(self,user, repo):
+        for user in user:
+            target_channel = MyDiscordBot.get_channel(channel)
+            repo= g.get_repo(repo)
+            commits = repo.get_commits()
+            if(commits.totalCount > user[3]):
+                await target_channel.send(channel, message='New commit in ' + repo.name + ' from ' + user[0])
+                self.user[3] = commits.totalCount
+            
     async def on_message(self, message):
         print('Message from {0.author}: {0.content}'.format(message))
 
         if message.author == self.user:
             return
         
-        
+        if message.content.startswith('!setRepo'):
+            if message.content == '!setRepo ':
+                await message.channel.send('Please enter a valid GitHub repo')
+            else:
+                arr = message.content.split(' ')[1:]
+                if False==checkRepoExist(arr[0],arr[1]):
+                    return await message.channel.send('Please enter a valid GitHub repo First type the username and then the repo name')
+                else:
+                    await message.channel.send('Repo added')
+                    self.repo = github.get_repo(arr[0] + '/' + arr[1])
+
+
         if message.content.startswith('!hello' or '!Hello' or 'hallo' or 'Hallo' or 'hi' or 'Hi' or 'hey' or 'Hey'):
             await message.channel.send('Hello!')
         
@@ -87,23 +118,8 @@ class MyDiscordBot(discord.Client):
         if message.content.startswith('!listUser'): #listUser
             await message.channel.send(self.user)
         
-        if message.content.startswith('!giveUserRepo'): #giveUserRepo
-            if message.content == '!giveUserRepo ' or message.content == '!giveUserRepo':
-                await message.channel.send('Please enter a valid GitHub user number and repo name. To see the number, use !listUser')
-            else:
-                arr = message.content.split(' ')[1:]
-                if len(arr) > 2:
-                    await message.channel.send('Please enter only one number and repo name')
-                else:
-                    try:
-                        await message.channel.send('User repo added')
-                        self.user[int(arr[0])-1][1][None] = arr[1]
-                    except:
-                        await message.channel.send('Please enter a valid GitHub user number and repo name. To see the number, use !listUser')
-
-          #Need to set channel name
-        if message.content.startswith('!giveUserRepoChannel'): #giveUserRepoChannel
-            if message.content == '!giveUserRepoChannel ' or message.content == '!giveUserRepoChannel':
+        if message.content.startswith('!giveUserChannel'): #giveUserChannel
+            if message.content == '!giveUserChannel ' or message.content == '!giveUserChannel':
                 await message.channel.send('Please enter a valid GitHub user number and channel name. To see the number, use !listUser')
             else:
                 arr = message.content.split(' ')[1:]
@@ -112,15 +128,20 @@ class MyDiscordBot(discord.Client):
                 else:
                     try:
                         await message.channel.send('User channel added')
-                        self.user[int(arr[0])-1][2][arr[1]] = arr[1]
+                        self.user[int(arr[0])-1][1] = arr[1]
                     except:
                         await message.channel.send('Please enter a valid GitHub user number and channel name. To see the number, use !listUser')
-        
+
         if message.content.startswith('!help'): #help
             await message.channel.send('\n!hello: Say hello to the bot\n!addUser: Add a GitHub user to the bot\n!removeUser: Remove a GitHub user from the bot\n!listUser: List all the GitHub users\n!giveUserRepo: Give a GitHub user a repo\n!giveUserRepoChannel: Give a GitHub user a channel\n!listChannel: List all the channels\n!help: List all the commands\n')
 
         if message.content.startswith('!listChannel' or '!listchannel' or '!ListChannel' or '!Listchannel'):
-            await message.channel.send(self.guilds[0].channels[].name)
+            for guild in self.guilds:
+                channels = guild.text_channels
+                for channel in channels:
+                    await message.channel.send(channel.name)
+        
+    
             
 
             
@@ -140,8 +161,8 @@ def main():
     configure()
     intents = discord.Intents.all()
     client = MyDiscordBot(intents=intents)
+    github = GitHubBridge()
     client.run(os.getenv('api_key'))
-
 
 
 main()
